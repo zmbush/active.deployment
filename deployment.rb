@@ -54,10 +54,14 @@ post '/' do
         if data.has_key?("branch")
           branch = data["branch"]
         end
+        logger.info "  Fetching most recent changes"
+        logOutput(Open3.popen3("cd #{data["directory"]}; sudo -u #{user} git fetch"), "    ")
         logger.info "  Checking out #{branch}"
         logOutput(Open3.popen3("cd #{data["directory"]}; sudo -u #{user} git checkout #{branch}"), "    ")
-        logger.info "  Pulling most recent changes"
-        logOutput(Open3.popen3("cd #{data["directory"]}; sudo -u #{user} git pull"), "    ")
+        logger.info "  Resetting #{branch}"
+        logOutput(Open3.popen3("cd #{data["directory"]}; sudo -u #{user} git checkout ."), "    ")
+        logger.info "  Merging from origin/#{branch}"
+        logOutput(Open3.popen3("cd #{data["directory"]}; sudo -u #{user} git merge origin/#{branch}"), "    ")
         logger.info "  Running Commands:"
         data["commands"].each do |command|
           logger.info "    #{command}"
