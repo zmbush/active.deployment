@@ -46,6 +46,10 @@ post '/' do
   name = repo["name"]
   sites.each do |site, data|
     if data["repo"] == name and data["username"] == owner
+      env = {}
+      if data["env"]
+        env = data["env"]
+      end
       logger.info "Deploying: #{site}"
       begin
         repo = Git.open(data["directory"]) 
@@ -65,7 +69,7 @@ post '/' do
         logger.info "  Running Commands:"
         data["commands"].each do |command|
           logger.info "    #{command}"
-          logOutput(Open3.popen3("cd #{data["directory"]}; " + command), "      ")
+          logOutput(Open3.popen3(env, "cd #{data["directory"]}; " + command), "      ")
         end
       rescue Git::GitExecuteError => gee
         logger.info "  Failed to pull..."
