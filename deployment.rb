@@ -10,13 +10,15 @@ set :port, 4251
 enable :logging
 
 configuration = YAML.load_file('/etc/active-deployment.yml')
-sites = configuration["sites"]
+SITES = configuration["sites"]
 indent = ""
+LOCKS = {}
 
 before do
   env ||= {}
   env['rack.logger'] = Logger.new('/var/log/active-deployment/output.log', 'weekly')
 end
+
 not_found do
   'nope'
 end
@@ -38,13 +40,39 @@ def logOutput(response, indent)
     return
   end
 end
-  
+
+def lock(n)
+  return false if LOCKS.has_key?(n)
+  LOCKS[n] = true
+end
+
+def unlock(n)
+  LOCKS.delete(n)
+end
+
 post '/' do
   push = JSON.parse(params[:payload])
   repo = push["repository"]
   owner = repo["owner"]["name"]
   name = repo["name"]
-  sites.each do |site, data|
+  if lock(name + '/' + owner)
+    deploy(name, owner)
+    unlock(name + '/' + owner)
+  else
+    puts "Unable to obtain deploy lock"
+  end
+end
+
+get '/:owner/:repo' do
+  if deploy(params[:repo], params[:owner])
+    "okay"
+  else
+    "nope"
+  end
+end
+
+def deploy(name, owner)
+  SITES.each do |site, data|
     if data["repo"] == name and data["username"] == owner
       env = {}
       if data["env"]
@@ -71,10 +99,13 @@ post '/' do
           logger.info "    #{command}"
           logOutput(Open3.popen3(env, "cd #{data["directory"]}; " + command), "      ")
         end
+        return true
       rescue Git::GitExecuteError => gee
         logger.info "  Failed to pull..."
+        return false
       end
     end
   end
-  ""
+  logger.info "Site not found..."
+  return false
 end
