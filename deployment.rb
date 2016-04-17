@@ -72,6 +72,7 @@ get '/:owner/:repo' do
 end
 
 def deploy(name, owner)
+  deployed = false
   SITES.each do |site, data|
     if data["repo"] == name and data["username"] == owner
       env = {}
@@ -99,13 +100,12 @@ def deploy(name, owner)
           logger.info "    #{command}"
           logOutput(Open3.popen3(env, "cd #{data["directory"]}; " + command), "      ")
         end
-        return true
+        deployed = true
       rescue Git::GitExecuteError => gee
         logger.info "  Failed to pull..."
         return false
       end
     end
   end
-  logger.info "Site not found..."
-  return false
+  return deployed
 end
