@@ -1,0 +1,19 @@
+sites:
+  www.zmbush.com:
+    username: zmbush
+    repo: zmbush.com
+    commands:
+      - bundle install
+      - JEKYLL_ENV=production bundle exec jekyll build
+      - git describe > _site/version
+    directory: /home/zmbush/zmbush.com/www/
+  alpha.zmbush.com:
+    username: zmbush
+    repo: zmbush.com
+    branch: redesign2015
+    commands:
+      - bundle install
+      - bower install
+      - bundle exec jekyll build
+      - git describe > _site/version
+    directory: /home/zmbush/zmbush.com/alpha/

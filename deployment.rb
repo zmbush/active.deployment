@@ -4,19 +4,23 @@ require 'git'
 require 'jekyll'
 require 'open3'
 require 'yaml'
+require 'rack/protection'
 require 'logger'
 
 set :port, 4251
+set :environment, :production
+set :show_exceptions, :false
+use Rack::Protection
 enable :logging
 
-configuration = YAML.load_file('/etc/active-deployment.yml')
+dir = File.dirname(__FILE__)
+configuration = YAML.load_file("#{dir}/active-deployment.yml")
 SITES = configuration["sites"]
-indent = ""
 LOCKS = {}
 
 before do
   env ||= {}
-  env['rack.logger'] = Logger.new('/var/log/active-deployment/output.log', 'weekly')
+  env['rack.logger'] = Logger.new("#{dir}/logs/output.log", 'weekly')
 end
 
 not_found do
@@ -65,6 +69,7 @@ end
 
 get '/:owner/:repo' do
   if deploy(params[:repo], params[:owner])
+    logger.info(params.inspect)
     "okay"
   else
     "nope"
@@ -81,27 +86,26 @@ def deploy(name, owner)
       end
       logger.info "Deploying: #{site}"
       begin
-        repo = Git.open(data["directory"]) 
+        repo = Git.open(data["directory"])
         branch = "master"
-        user = 'zmbush'
         if data.has_key?("branch")
           branch = data["branch"]
         end
         logger.info "  Fetching most recent changes"
-        logOutput(Open3.popen3("cd #{data["directory"]}; sudo -u #{user} git fetch"), "    ")
+        logOutput(Open3.popen3("cd #{data["directory"]}; git fetch"), "    ")
         logger.info "  Checking out #{branch}"
-        logOutput(Open3.popen3("cd #{data["directory"]}; sudo -u #{user} git checkout #{branch}"), "    ")
+        logOutput(Open3.popen3("cd #{data["directory"]}; git checkout #{branch}"), "    ")
         logger.info "  Resetting #{branch}"
-        logOutput(Open3.popen3("cd #{data["directory"]}; sudo -u #{user} git checkout ."), "    ")
+        logOutput(Open3.popen3("cd #{data["directory"]}; git checkout ."), "    ")
         logger.info "  Merging from origin/#{branch}"
-        logOutput(Open3.popen3("cd #{data["directory"]}; sudo -u #{user} git merge origin/#{branch}"), "    ")
+        logOutput(Open3.popen3("cd #{data["directory"]}; git merge origin/#{branch}"), "    ")
         logger.info "  Running Commands:"
         data["commands"].each do |command|
           logger.info "    #{command}"
-          logOutput(Open3.popen3(env, "cd #{data["directory"]}; " + command), "      ")
+          logOutput(Open3.popen3(env, "cd #{data["directory"]}; #{command}"), "      ")
         end
         deployed = true
-      rescue Git::GitExecuteError => gee
+      rescue Git::GitExecuteError => _
         logger.info "  Failed to pull..."
         return false
       end
